@@ -1,25 +1,26 @@
 package main
 
 import (
-	"encoding/json"
-	"github.com/fireworq/fireworq/model"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"io/ioutil"
+	"github.com/stk132/tsutsu"
+	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
-	"net/http"
 )
 
+var host = kingpin.Flag("host", "fireworq host url").Short('h').Required().String()
+
 func main() {
+	kingpin.Parse()
 	//box := tview.NewBox().SetBorder(true).SetTitle("Hello, world!")
 	flex := tview.NewFlex().SetDirection(tview.FlexColumn)
-
-	routings, err := getRoutingData()
+	client := tsutsu.NewTsutsu(*host)
+	routings, err := client.Routings()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	queues, err := getQueueData()
+	queues, err := client.Queues()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -55,7 +56,7 @@ func main() {
 	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Rune() {
 		case 'r':
-			newQueues, err := getQueueData()
+			newQueues, err := client.Queues()
 			if err != nil {
 				log.Println(err)
 				return nil
@@ -77,48 +78,4 @@ func main() {
 	if err := tview.NewApplication().SetRoot(flex, true).Run(); err != nil {
 		panic(err)
 	}
-}
-
-
-func getQueueData() ([]model.Queue, error) {
-	res, err := http.Get("http://localhost:18080/queues")
-	if err != nil {
-		return []model.Queue{}, err
-	}
-
-	defer res.Body.Close()
-
-	buf, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return []model.Queue{}, err
-	}
-
-	var queues []model.Queue
-	if err := json.Unmarshal(buf, &queues); err != nil {
-		return queues, err
-	}
-
-	return queues, nil
-}
-
-func getRoutingData() ([]model.Routing, error) {
-	res, err := http.Get("http://localhost:18080/routings")
-	if err != nil {
-		return []model.Routing{}, err
-	}
-
-	defer res.Body.Close()
-
-	buf, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return []model.Routing{}, err
-	}
-
-	var routings []model.Routing
-
-	if err := json.Unmarshal(buf, &routings); err != nil {
-		return []model.Routing{}, err
-	}
-
-	return routings, nil
 }
