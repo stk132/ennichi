@@ -3,9 +3,58 @@ package main
 import (
 	"fmt"
 	"github.com/fireworq/fireworq/model"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"log"
 	"sync"
 )
+
+type QueueList struct {
+	root *app
+	list *tview.List
+}
+
+func newQueueList(root *app) *QueueList {
+	list := tview.NewList()
+	list.SetBorder(true).SetTitle("queue list")
+	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Rune() {
+		case 'r':
+			if err := root.refreshQueueList(); err != nil {
+				log.Fatal(err)
+			}
+			return nil
+		default:
+			return event
+		}
+
+	})
+	return &QueueList{
+		root: root,
+		list: list,
+	}
+}
+
+func (q *QueueList) clear() {
+	q.list.Clear()
+}
+
+func (q *QueueList) init() {
+	for _, v := range q.root.queues {
+		queueName := v.Name
+		q.list.AddItem(v.Name, "", 'a', func() {
+			if err := q.root.drawJobCategory(queueName); err != nil {
+				log.Fatal(err)
+			}
+
+			queue, err := q.root.client.Queue(queueName)
+			if err != nil {
+				log.Fatal(err)
+			}
+			q.root.drawQueueInfo(queue)
+		})
+	}
+}
 
 type QueueInfoTable struct {
 	root  *app

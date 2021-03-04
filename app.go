@@ -1,33 +1,36 @@
 package main
 
 import (
-	"github.com/gdamore/tcell/v2"
+	"github.com/fireworq/fireworq/model"
 	"github.com/rivo/tview"
 	"github.com/stk132/tsutsu"
-	"log"
 )
 
 type app struct {
-	root *tview.Application
-	host string
+	root             *tview.Application
+	queueList        *QueueList
+	queueInfoTable   *QueueInfoTable
+	jobCategoryTable *JobCategoryTable
+	host             string
+	client           *tsutsu.Tsutsu
+	routings         []model.Routing
+	queues           []model.Queue
+	routingMap       map[string][]string
 }
 
 func newApp(host string) *app {
-	return &app{root: tview.NewApplication(), host: host}
+	return &app{root: tview.NewApplication(), host: host, client: tsutsu.NewTsutsu(host)}
 }
 
-func (a *app) run() error {
-	flex := tview.NewFlex().SetDirection(tview.FlexColumn)
-	infoFlex := tview.NewFlex().SetDirection(tview.FlexRow)
-	client := tsutsu.NewTsutsu(a.host)
-	routings, err := client.Routings()
+func (a *app) fetchData() error {
+	routings, err := a.client.Routings()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	queues, err := client.Queues()
+	queues, err := a.client.Queues()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	routingMap := map[string][]string{}
@@ -41,55 +44,45 @@ func (a *app) run() error {
 		}
 	}
 
-	list := tview.NewList()
-	list.SetBorder(true).SetTitle("queue list")
+	a.routings = routings
+	a.queues = queues
+	a.routingMap = routingMap
+	return nil
+}
 
-	queueInfoTable := NewQueueInfoTable(a)
+func (a *app) drawJobCategory(queueName string) error {
+	return a.jobCategoryTable.draw(queueName)
+}
 
-	table := tview.NewTable()
-	table.SetBorder(true).SetTitle("job categories")
-	table.SetCell(0, 0, tview.NewTableCell("not selected"))
-	for _, v := range queues {
-		queueName := v.Name
-		list.AddItem(v.Name, "", 'a', func() {
-			table.Clear()
-			if jobCategories, ok := routingMap[queueName]; ok {
-				for i, jobCategory := range jobCategories {
-					table.SetCell(i, 0, tview.NewTableCell(jobCategory))
-				}
-			}
+func (a *app) drawQueueInfo(queue model.Queue) {
+	a.queueInfoTable.setQueueInfo(queue)
+}
 
-			queue, err := client.Queue(queueName)
-			if err != nil {
-				log.Fatal(err)
-			}
-			queueInfoTable.setQueueInfo(queue)
+func (a *app) refreshQueueList() error {
+	if err := a.fetchData(); err != nil {
+		return err
+	}
+	a.queueList.clear()
+	a.queueList.init()
+	return nil
+}
 
-		})
+func (a *app) run() error {
+	flex := tview.NewFlex().SetDirection(tview.FlexColumn)
+	infoFlex := tview.NewFlex().SetDirection(tview.FlexRow)
+
+	if err := a.fetchData(); err != nil {
+		return err
 	}
 
-	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Rune() {
-		case 'r':
-			newQueues, err := client.Queues()
-			if err != nil {
-				log.Println(err)
-				return nil
-			}
-			list.Clear()
-			for _, v := range newQueues {
-				list.AddItem(v.Name, "", 'a', nil)
-			}
-			return nil
-		default:
-			return event
-		}
+	a.jobCategoryTable = newJobCategoryTable(a)
+	a.queueList = newQueueList(a)
+	a.queueList.init()
+	a.queueInfoTable = NewQueueInfoTable(a)
 
-	})
-
-	infoFlex.AddItem(queueInfoTable.table, 0, 1, false)
-	infoFlex.AddItem(table, 0, 4, false)
-	flex.AddItem(list, 0, 1, true)
+	infoFlex.AddItem(a.queueInfoTable.table, 0, 1, false)
+	infoFlex.AddItem(a.jobCategoryTable.table, 0, 4, false)
+	flex.AddItem(a.queueList.list, 0, 1, true)
 	flex.AddItem(infoFlex, 0, 1, false)
 
 	return a.root.SetRoot(flex, true).Run()
