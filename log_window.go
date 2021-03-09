@@ -20,6 +20,10 @@ func newLogWindow(root *app, maxLines int) *LogWindow {
 	}
 }
 
+func (l *LogWindow) focus() {
+	l.root.root.SetFocus(l.textView)
+}
+
 func (l *LogWindow) Write(buf []byte) (int, error) {
 	return l.textView.Write(buf)
 }

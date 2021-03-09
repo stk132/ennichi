@@ -34,6 +34,10 @@ func newQueueList(root *app) *QueueList {
 	}
 }
 
+func (q *QueueList) focus() {
+	q.root.root.SetFocus(q.list)
+}
+
 func (q *QueueList) clear() {
 	q.list.Clear()
 }

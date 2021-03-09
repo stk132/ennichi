@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/fireworq/fireworq/model"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/rs/zerolog"
 	"github.com/stk132/tsutsu"
@@ -86,6 +87,19 @@ func (a *app) run() error {
 	a.queueList = newQueueList(a)
 	a.queueList.init()
 	a.queueInfoTable = NewQueueInfoTable(a)
+
+	a.root.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Rune() {
+		case 'q':
+			a.queueList.focus()
+			return nil
+		case 'l':
+			a.logWindow.focus()
+			return nil
+		default:
+			return event
+		}
+	})
 
 	infoFlex.AddItem(a.queueInfoTable.table, 0, 1, false)
 	infoFlex.AddItem(a.jobCategoryTable.table, 0, 4, false)
