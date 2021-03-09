@@ -80,7 +80,7 @@ func (a *app) run() error {
 	}
 
 	a.logWindow = newLogWindow(a, 500)
-	a.logger = zerolog.New(a.logWindow)
+	a.logger = zerolog.New(a.logWindow).With().Timestamp().Logger()
 	a.jobCategoryTable = newJobCategoryTable(a)
 	a.queueList = newQueueList(a)
 	a.queueList.init()
