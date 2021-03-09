@@ -5,7 +5,6 @@ import (
 	"github.com/fireworq/fireworq/model"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"log"
 	"sync"
 )
 
@@ -21,7 +20,7 @@ func newQueueList(root *app) *QueueList {
 		switch event.Rune() {
 		case 'r':
 			if err := root.refreshQueueList(); err != nil {
-				log.Fatal(err)
+				root.logger.Err(err)
 			}
 			return nil
 		default:
@@ -44,12 +43,12 @@ func (q *QueueList) init() {
 		queueName := v.Name
 		q.list.AddItem(v.Name, "", 'a', func() {
 			if err := q.root.drawJobCategory(queueName); err != nil {
-				log.Fatal(err)
+				q.root.logger.Err(err)
 			}
 
 			queue, err := q.root.client.Queue(queueName)
 			if err != nil {
-				log.Fatal(err)
+				q.root.logger.Err(err)
 			}
 			q.root.drawQueueInfo(queue)
 		})
