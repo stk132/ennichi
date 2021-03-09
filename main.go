@@ -3,6 +3,7 @@ package main
 import (
 	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
+	"sync"
 )
 
 var host = kingpin.Flag("host", "fireworq host url").Short('h').Required().String()
@@ -10,7 +11,18 @@ var host = kingpin.Flag("host", "fireworq host url").Short('h').Required().Strin
 func main() {
 	kingpin.Parse()
 	application := newApp(*host)
-	if err := application.run(); err != nil {
-		log.Fatal(err)
-	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := application.run(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	application.root.QueueUpdate(func() {
+		application.logger.Info().Msg("application start")
+	})
+	wg.Wait()
 }
