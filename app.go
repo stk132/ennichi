@@ -67,6 +67,7 @@ func (a *app) refreshQueueList() error {
 	}
 	a.queueList.clear()
 	a.queueList.init()
+	a.logger.Info().Msg("queue list refreshed")
 	return nil
 }
 
