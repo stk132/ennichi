@@ -14,7 +14,10 @@ import (
 var (
 	MAIN_PAGE              = "main"
 	QUEUE_FORM_PAGE        = "form"
+	ROUTING_FORM_PAGE      = "routing"
+	LABEL_JOB_CATEGORY     = "job category"
 	LABEL_QUEUE_NAME       = "queue name"
+	LABEL_QUEUE_NAME_LIST  = "select queue name"
 	LABEL_MAX_WORKERS      = "max workers"
 	LABEL_POLLING_INTERVAL = "polling interval"
 )
@@ -67,7 +70,64 @@ func (a *app) fetchData() error {
 }
 
 func (a *app) showRoutingCreateForm() {
+	clearPage := func() {
+		a.pages.ShowPage(MAIN_PAGE)
+		a.queueList.focus()
+		a.pages.RemovePage(ROUTING_FORM_PAGE)
+	}
 
+	queueNames := make([]string, len(a.queues))
+	for i, v := range a.queues {
+		queueNames[i] = v.Name
+	}
+	form := tview.NewForm().
+		AddDropDown(LABEL_QUEUE_NAME_LIST, queueNames, 0, func(option string, optionIndex int) {
+
+		}).
+		AddInputField(LABEL_JOB_CATEGORY, "", 20, nil, nil)
+
+	form.
+		AddButton("Create", func() {
+			defer clearPage()
+			queueNamesItem := form.GetFormItemByLabel(LABEL_QUEUE_NAME_LIST)
+			queueNamesDropdown, ok := queueNamesItem.(*tview.DropDown)
+			if !ok {
+				a.logger.Err(errors.New("type assertion error. FormItem to Dropdown"))
+				return
+			}
+
+			_, selectedQueueName := queueNamesDropdown.GetCurrentOption()
+
+			jobCategoryItem := form.GetFormItemByLabel(LABEL_JOB_CATEGORY)
+			jobCategoryInput, ok := jobCategoryItem.(*tview.InputField)
+			if !ok {
+				a.logger.Err(errors.New("type assertion error. FormItem to InputField"))
+				return
+			}
+
+			jobCategory := jobCategoryInput.GetText()
+
+			if _, err := a.client.CreateRouting(jobCategory, selectedQueueName); err != nil {
+				a.logger.Err(err)
+				return
+			}
+
+			a.logger.Info().Fields(map[string]interface{}{
+				"job_category": jobCategory,
+				"queue_name":   selectedQueueName,
+			}).Msg("routing created")
+
+			if err := a.refreshQueueList(); err != nil {
+				a.logger.Err(err)
+			}
+		}).
+		AddButton("Cancel", func() {
+			clearPage()
+		})
+
+	form.SetBorder(true).SetTitle("routing create form")
+	a.pages.AddAndSwitchToPage(ROUTING_FORM_PAGE, form, true)
+	a.root.SetFocus(form)
 }
 
 func (a *app) showQueueCreateForm() {
@@ -138,7 +198,7 @@ func (a *app) showQueueCreateForm() {
 			clearPage()
 		})
 	form.SetBorder(true).SetTitle("queue create form")
-	a.pages.AddAndSwitchToPage("form", form, true)
+	a.pages.AddAndSwitchToPage(QUEUE_FORM_PAGE, form, true)
 	a.root.SetFocus(form)
 }
 
@@ -177,15 +237,18 @@ func (a *app) run() error {
 	a.queueInfoTable = NewQueueInfoTable(a)
 
 	a.root.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Rune() {
-		case 'q':
+		switch event.Key() {
+		case tcell.KeyCtrlQ:
 			a.queueList.focus()
 			return nil
-		case 'l':
+		case tcell.KeyCtrlL:
 			a.logWindow.focus()
 			return nil
-		case 'n':
+		case tcell.KeyCtrlN:
 			a.showQueueCreateForm()
+			return nil
+		case tcell.KeyCtrlJ:
+			a.showRoutingCreateForm()
 			return nil
 		default:
 			return event
