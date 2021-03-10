@@ -13,7 +13,7 @@ import (
 
 var (
 	MAIN_PAGE              = "main"
-	FORM_PAGE              = "form"
+	QUEUE_FORM_PAGE        = "form"
 	LABEL_QUEUE_NAME       = "queue name"
 	LABEL_MAX_WORKERS      = "max workers"
 	LABEL_POLLING_INTERVAL = "polling interval"
@@ -66,11 +66,15 @@ func (a *app) fetchData() error {
 	return nil
 }
 
+func (a *app) showRoutingCreateForm() {
+
+}
+
 func (a *app) showQueueCreateForm() {
 	clearPage := func() {
 		a.pages.ShowPage(MAIN_PAGE)
 		a.queueList.focus()
-		a.pages.RemovePage(FORM_PAGE)
+		a.pages.RemovePage(QUEUE_FORM_PAGE)
 	}
 	form := tview.NewForm().
 		AddInputField(LABEL_QUEUE_NAME, "", 20, nil, nil).
