@@ -8,6 +8,8 @@ import (
 	"github.com/rivo/tview"
 	"github.com/rs/zerolog"
 	"github.com/stk132/tsutsu"
+	"io"
+	"os"
 	"strconv"
 )
 
@@ -230,7 +232,8 @@ func (a *app) run() error {
 	}
 
 	a.logWindow = newLogWindow(a, 500)
-	a.logger = zerolog.New(a.logWindow).With().Timestamp().Logger()
+	writer := io.MultiWriter(a.logWindow, os.Stdout)
+	a.logger = zerolog.New(writer).With().Timestamp().Logger()
 	a.jobCategoryTable = newJobCategoryTable(a)
 	a.queueList = newQueueList(a)
 	a.queueList.init()
