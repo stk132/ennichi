@@ -17,6 +17,7 @@ var (
 	MAIN_PAGE              = "main"
 	QUEUE_FORM_PAGE        = "form"
 	ROUTING_FORM_PAGE      = "routing"
+	MODAL_PAGE             = "modal"
 	LABEL_JOB_CATEGORY     = "job category"
 	LABEL_QUEUE_NAME       = "queue name"
 	LABEL_QUEUE_NAME_LIST  = "select queue name"
@@ -78,6 +79,18 @@ func (a *app) showRoutingCreateForm() {
 		a.pages.RemovePage(ROUTING_FORM_PAGE)
 	}
 
+	showErrorModal := func(errorMessage string) {
+		errorModal := tview.NewModal().
+			SetText(errorMessage).
+			AddButtons([]string{"Close"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				a.pages.SwitchToPage(ROUTING_FORM_PAGE)
+				a.pages.RemovePage(MODAL_PAGE)
+			})
+
+		a.pages.AddAndSwitchToPage(MODAL_PAGE, errorModal, true)
+	}
+
 	queueNames := make([]string, len(a.queues))
 	for i, v := range a.queues {
 		queueNames[i] = v.Name
@@ -94,7 +107,9 @@ func (a *app) showRoutingCreateForm() {
 			queueNamesItem := form.GetFormItemByLabel(LABEL_QUEUE_NAME_LIST)
 			queueNamesDropdown, ok := queueNamesItem.(*tview.DropDown)
 			if !ok {
-				a.logger.Err(errors.New("type assertion error. FormItem to Dropdown"))
+				err := errors.New("type assertion error. FormItem to Dropdown")
+				a.logger.Err(err)
+				showErrorModal(err.Error())
 				return
 			}
 
@@ -103,7 +118,9 @@ func (a *app) showRoutingCreateForm() {
 			jobCategoryItem := form.GetFormItemByLabel(LABEL_JOB_CATEGORY)
 			jobCategoryInput, ok := jobCategoryItem.(*tview.InputField)
 			if !ok {
-				a.logger.Err(errors.New("type assertion error. FormItem to InputField"))
+				err := errors.New("type assertion error. FormItem to InputField")
+				a.logger.Err(err)
+				showErrorModal(err.Error())
 				return
 			}
 
@@ -111,6 +128,7 @@ func (a *app) showRoutingCreateForm() {
 
 			if _, err := a.client.CreateRouting(jobCategory, selectedQueueName); err != nil {
 				a.logger.Err(err)
+				showErrorModal(err.Error())
 				return
 			}
 
@@ -122,6 +140,16 @@ func (a *app) showRoutingCreateForm() {
 			if err := a.refreshQueueList(); err != nil {
 				a.logger.Err(err)
 			}
+
+			completeModal := tview.NewModal().
+				SetText(fmt.Sprintf("routing created.\njob_category: %s \nqueue_name: %s", jobCategory, selectedQueueName)).
+				AddButtons([]string{"Close"}).
+				SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+					clearPage()
+					a.pages.RemovePage(MODAL_PAGE)
+				})
+
+			a.pages.AddAndSwitchToPage(MODAL_PAGE, completeModal, true)
 		}).
 		AddButton("Cancel", func() {
 			clearPage()
@@ -138,6 +166,18 @@ func (a *app) showQueueCreateForm() {
 		a.queueList.focus()
 		a.pages.RemovePage(QUEUE_FORM_PAGE)
 	}
+
+	showErrorModal := func(errorMessage string) {
+		errorModal := tview.NewModal().
+			SetText(errorMessage).
+			AddButtons([]string{"Close"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				a.pages.SwitchToPage(QUEUE_FORM_PAGE)
+				a.pages.RemovePage(MODAL_PAGE)
+			})
+		a.pages.AddAndSwitchToPage(MODAL_PAGE, errorModal, true)
+	}
+
 	form := tview.NewForm().
 		AddInputField(LABEL_QUEUE_NAME, "", 20, nil, nil).
 		AddInputField(LABEL_MAX_WORKERS, "", 3, nil, nil).
@@ -145,48 +185,49 @@ func (a *app) showQueueCreateForm() {
 	form.
 		AddButton("Create", func() {
 			a.logger.Info().Msg("created")
+			typeAssertionErr := errors.New("type assertion failed. FormItem to InputField")
 
 			queueNameItem := form.GetFormItemByLabel(LABEL_QUEUE_NAME)
 			queueNameInput, ok := queueNameItem.(*tview.InputField)
 			if !ok {
-				a.logger.Err(errors.New("type assertion failed. FormItem to InputField"))
-				clearPage()
+				a.logger.Err(typeAssertionErr)
+				showErrorModal(typeAssertionErr.Error())
 				return
 			}
 
 			maxWorkersItem := form.GetFormItemByLabel(LABEL_MAX_WORKERS)
 			maxWorkersInput, ok := maxWorkersItem.(*tview.InputField)
 			if !ok {
-				a.logger.Err(errors.New("type assertion failed. FormItem to InputField"))
-				clearPage()
+				a.logger.Err(typeAssertionErr)
+				showErrorModal(typeAssertionErr.Error())
 				return
 			}
 
 			pollingIntervalItem := form.GetFormItemByLabel(LABEL_POLLING_INTERVAL)
 			pollingIntervalInput, ok := pollingIntervalItem.(*tview.InputField)
 			if !ok {
-				a.logger.Err(errors.New("type assertion failed. FormItem to InputField"))
-				clearPage()
+				a.logger.Err(typeAssertionErr)
+				showErrorModal(typeAssertionErr.Error())
 				return
 			}
 
 			maxWorkers, err := strconv.Atoi(maxWorkersInput.GetText())
 			if err != nil {
 				a.logger.Err(err)
-				clearPage()
+				showErrorModal("please input number to max workers field")
 				return
 			}
 
 			pollingInterval, err := strconv.Atoi(pollingIntervalInput.GetText())
 			if err != nil {
 				a.logger.Err(err)
-				clearPage()
+				showErrorModal("please input number to polling interval field")
 				return
 			}
 
 			if _, err := a.client.CreateQueue(queueNameInput.GetText(), uint(pollingInterval), uint(maxWorkers)); err != nil {
 				a.logger.Err(err)
-				clearPage()
+				showErrorModal(err.Error())
 				return
 			}
 
@@ -194,7 +235,17 @@ func (a *app) showQueueCreateForm() {
 			if err := a.refreshQueueList(); err != nil {
 				a.logger.Err(err)
 			}
-			clearPage()
+
+			completeModal := tview.NewModal().
+				SetText(fmt.Sprintf("queue: %s created", queueNameInput.GetText())).
+				AddButtons([]string{"Close"}).
+				SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+					clearPage()
+					a.pages.RemovePage(MODAL_PAGE)
+				})
+
+			a.pages.AddAndSwitchToPage(MODAL_PAGE, completeModal, true)
+
 		}).
 		AddButton("Cancel", func() {
 			clearPage()

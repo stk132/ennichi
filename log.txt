@@ -1,0 +1,6 @@
+{"level":"info","time":"2021-03-11T09:39:41+09:00","message":"application start"}
+{"level":"info","job_category":"hogehoge","queue_name":"test5","time":"2021-03-11T09:39:54+09:00","message":"routing created"}
+{"level":"info","time":"2021-03-11T09:39:54+09:00","message":"queue list refreshed"}
+{"level":"info","time":"2021-03-11T09:40:21+09:00","message":"created"}
+{"level":"info","time":"2021-03-11T09:40:21+09:00","message":"queue_name: test6 created"}
+{"level":"info","time":"2021-03-11T09:40:21+09:00","message":"queue list refreshed"}
