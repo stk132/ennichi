@@ -16,15 +16,16 @@ import (
 )
 
 var (
-	MAIN_PAGE              = "main"
-	QUEUE_FORM_PAGE        = "form"
-	ROUTING_FORM_PAGE      = "routing"
-	MODAL_PAGE             = "modal"
-	LABEL_JOB_CATEGORY     = "job category"
-	LABEL_QUEUE_NAME       = "queue name"
-	LABEL_QUEUE_NAME_LIST  = "select queue name"
-	LABEL_MAX_WORKERS      = "max workers"
-	LABEL_POLLING_INTERVAL = "polling interval"
+	MAIN_PAGE                = "main"
+	QUEUE_FORM_PAGE          = "form"
+	ROUTING_FORM_PAGE        = "routing"
+	DELETE_ROUTING_FORM_PAGE = "delete_routing"
+	MODAL_PAGE               = "modal"
+	LABEL_JOB_CATEGORY       = "job category"
+	LABEL_QUEUE_NAME         = "queue name"
+	LABEL_QUEUE_NAME_LIST    = "select queue name"
+	LABEL_MAX_WORKERS        = "max workers"
+	LABEL_POLLING_INTERVAL   = "polling interval"
 )
 
 type app struct {
@@ -99,6 +100,66 @@ func (a *app) showDeleteQueueSuccessModal(queueName string) {
 		})
 
 	a.pages.AddAndSwitchToPage(MODAL_PAGE, completeMessageModal, true)
+}
+
+func (a *app) showDeleteRoutingForm(queueName string) {
+	routings, ok := a.routingMap[queueName]
+	if !ok {
+		noRoutingModal := tview.NewModal().
+			SetText("routing not exists").
+			AddButtons([]string{"Close"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				a.pages.SwitchToPage(MAIN_PAGE)
+				a.pages.RemovePage(MODAL_PAGE)
+			})
+		a.pages.AddAndSwitchToPage(MODAL_PAGE, noRoutingModal, true)
+		return
+	}
+
+	selectedJobCategory := routings[0]
+	deleteRoutingForm := tview.NewForm().
+		AddDropDown("job category", routings, 0, func(option string, optionIndex int) {
+			selectedJobCategory = option
+		}).AddButton("Delete", func() {
+		if _, err := a.client.DeleteRouting(selectedJobCategory); err != nil {
+			a.logger.Err(err)
+			deleteFailedModal := tview.NewModal().
+				SetText("delete routing failed. see log window.").
+				AddButtons([]string{"Close"}).
+				SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+					a.pages.SwitchToPage(MAIN_PAGE)
+					a.pages.RemovePage(MODAL_PAGE)
+				})
+			a.pages.AddAndSwitchToPage(MODAL_PAGE, deleteFailedModal, true)
+			return
+		}
+		a.logger.Info().Fields(map[string]interface{}{
+			"job_category": selectedJobCategory,
+			"queue_name":   queueName,
+		}).Msg("routing deleted.")
+
+		deleteSuccessModal := tview.NewModal().
+			SetText(fmt.Sprintf("routing deleted. job_category: %s, queue_name: %s", selectedJobCategory, queueName)).
+			AddButtons([]string{"Close"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				a.pages.SwitchToPage(MAIN_PAGE)
+				a.pages.RemovePage(MODAL_PAGE)
+			})
+
+		if err := a.refreshQueueList(); err != nil {
+			a.logger.Err(err)
+		}
+
+		a.pages.AddAndSwitchToPage(MODAL_PAGE, deleteSuccessModal, true)
+	}).AddButton("Cancel", func() {
+		a.pages.SwitchToPage(MAIN_PAGE)
+		a.pages.RemovePage(DELETE_ROUTING_FORM_PAGE)
+	})
+
+	deleteRoutingForm.SetTitle("delete routing form")
+	deleteRoutingForm.SetBorder(true)
+
+	a.pages.AddAndSwitchToPage(DELETE_ROUTING_FORM_PAGE, deleteRoutingForm, true)
 }
 
 func (a *app) deleteQueue(queueName string) {

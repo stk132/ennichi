@@ -17,15 +17,25 @@ func newQueueList(root *app) *QueueList {
 	list := tview.NewList()
 	list.SetBorder(true).SetTitle("queue list")
 	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Rune() {
-		case 'r':
-			if err := root.refreshQueueList(); err != nil {
-				root.logger.Err(err)
+		switch event.Key() {
+		case tcell.KeyRune:
+			switch event.Rune() {
+			case 'r':
+				if err := root.refreshQueueList(); err != nil {
+					root.logger.Err(err)
+				}
+				return nil
+			case 'd':
+				queueName, _ := list.GetItemText(list.GetCurrentItem())
+				root.deleteQueue(queueName)
+				return nil
+			default:
+				return event
 			}
-			return nil
-		case 'd':
+
+		case tcell.KeyCtrlD:
 			queueName, _ := list.GetItemText(list.GetCurrentItem())
-			root.deleteQueue(queueName)
+			root.showDeleteRoutingForm(queueName)
 			return nil
 		default:
 			return event
