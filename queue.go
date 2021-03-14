@@ -23,6 +23,10 @@ func newQueueList(root *app) *QueueList {
 				root.logger.Err(err)
 			}
 			return nil
+		case 'd':
+			queueName, _ := list.GetItemText(list.GetCurrentItem())
+			root.deleteQueue(queueName)
+			return nil
 		default:
 			return event
 		}

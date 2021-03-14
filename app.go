@@ -77,6 +77,57 @@ func (a *app) fetchData() error {
 	return nil
 }
 
+func (a *app) showDeleteQueueErrorModal(queueName string) {
+	errorMessageModal := tview.NewModal().
+		SetText(fmt.Sprintf("delete queue failed. queue_name: %s", queueName)).
+		AddButtons([]string{"Close"}).
+		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			a.pages.SwitchToPage(MAIN_PAGE)
+			a.pages.RemovePage(MODAL_PAGE)
+		})
+
+	a.pages.AddAndSwitchToPage(MODAL_PAGE, errorMessageModal, true)
+}
+
+func (a *app) showDeleteQueueSuccessModal(queueName string) {
+	completeMessageModal := tview.NewModal().
+		SetText(fmt.Sprintf("delete queue successed. queue_name: %s", queueName)).
+		AddButtons([]string{"Close"}).
+		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			a.pages.SwitchToPage(MAIN_PAGE)
+			a.pages.RemovePage(MODAL_PAGE)
+		})
+
+	a.pages.AddAndSwitchToPage(MODAL_PAGE, completeMessageModal, true)
+}
+
+func (a *app) deleteQueue(queueName string) {
+	deleteConfirmModal := tview.NewModal().
+		SetText(fmt.Sprintf("Do you delete queue: %s ?", queueName)).
+		AddButtons([]string{"No", "Yes"}).
+		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			if buttonIndex == 0 {
+				a.pages.SwitchToPage(MAIN_PAGE)
+				a.pages.RemovePage(MODAL_PAGE)
+			} else {
+				if _, err := a.client.DeleteQueue(queueName); err != nil {
+					a.logger.Err(err)
+					a.showDeleteQueueErrorModal(queueName)
+				}
+				a.logger.Info().Fields(map[string]interface{}{
+					"queue_name": queueName,
+				}).Msg("queue deleted")
+
+				if err := a.refreshQueueList(); err != nil {
+					a.logger.Err(err)
+				}
+				a.showDeleteQueueSuccessModal(queueName)
+			}
+		})
+
+	a.pages.AddAndSwitchToPage(MODAL_PAGE, deleteConfirmModal, true)
+}
+
 func (a *app) showRoutingCreateForm() {
 	clearPage := func() {
 		a.pages.ShowPage(MAIN_PAGE)
