@@ -11,6 +11,7 @@ import (
 	"github.com/stk132/tsutsu"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 )
 
@@ -55,6 +56,9 @@ func (a *app) fetchData() error {
 	if err != nil {
 		return err
 	}
+	sort.Slice(queues, func(i, j int) bool {
+		return queues[i].Name < queues[j].Name
+	})
 
 	routingMap := map[string][]string{}
 	for _, v := range routings {
