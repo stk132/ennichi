@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/fireworq/fireworq/model"
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-isatty"
 	"github.com/rivo/tview"
 	"github.com/rs/zerolog"
 	"github.com/stk132/tsutsu"
@@ -283,7 +284,12 @@ func (a *app) run() error {
 	}
 
 	a.logWindow = newLogWindow(a, 500)
-	writer := io.MultiWriter(a.logWindow, os.Stdout)
+	var writer io.Writer
+	if isatty.IsTerminal(os.Stdout.Fd()) {
+		writer = a.logWindow
+	} else {
+		writer = io.MultiWriter(a.logWindow, os.Stdout)
+	}
 	a.logger = zerolog.New(writer).With().Timestamp().Logger()
 	a.jobCategoryTable = newJobCategoryTable(a)
 	a.queueList = newQueueList(a)
