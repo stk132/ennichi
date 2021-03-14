@@ -18,6 +18,7 @@ import (
 var (
 	MAIN_PAGE                = "main"
 	QUEUE_FORM_PAGE          = "form"
+	EDIT_QUEUE_FORM_PAGE     = "edit form"
 	ROUTING_FORM_PAGE        = "routing"
 	DELETE_ROUTING_FORM_PAGE = "delete_routing"
 	MODAL_PAGE               = "modal"
@@ -26,6 +27,7 @@ var (
 	LABEL_QUEUE_NAME_LIST    = "select queue name"
 	LABEL_MAX_WORKERS        = "max workers"
 	LABEL_POLLING_INTERVAL   = "polling interval"
+	typeAssertionErr         = errors.New("type assertion failed. FormItem to InputField")
 )
 
 type app struct {
@@ -277,6 +279,107 @@ func (a *app) showRoutingCreateForm() {
 	a.root.SetFocus(form)
 }
 
+func (a *app) showQueueEditForm(queueName string) {
+	queue, err := a.client.Queue(queueName)
+	if err != nil {
+		a.logger.Err(err)
+		errorModal := tview.NewModal().
+			SetText("queue information fetch failed.").
+			AddButtons([]string{"Close"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				a.pages.SwitchToPage(MAIN_PAGE)
+				a.pages.RemovePage(MODAL_PAGE)
+			})
+		a.pages.AddAndSwitchToPage(MODAL_PAGE, errorModal, true)
+		return
+	}
+
+	clearPage := func() {
+		a.pages.ShowPage(MAIN_PAGE)
+		a.queueList.focus()
+		a.pages.RemovePage(EDIT_QUEUE_FORM_PAGE)
+	}
+
+	showErrorModal := func(errorMessage string) {
+		errorModal := tview.NewModal().
+			SetText(errorMessage).
+			AddButtons([]string{"Close"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				a.pages.SwitchToPage(EDIT_QUEUE_FORM_PAGE)
+				a.pages.RemovePage(MODAL_PAGE)
+			})
+		a.pages.AddAndSwitchToPage(MODAL_PAGE, errorModal, true)
+	}
+
+	editForm := tview.NewForm().
+		AddInputField(LABEL_MAX_WORKERS, strconv.Itoa(int(queue.MaxWorkers)), 3, nil, nil).
+		AddInputField(LABEL_POLLING_INTERVAL, strconv.Itoa(int(queue.PollingInterval)), 4, nil, nil)
+
+	editForm.AddButton("Update", func() {
+		maxWorkersItem := editForm.GetFormItemByLabel(LABEL_MAX_WORKERS)
+		maxWorkersInput, ok := maxWorkersItem.(*tview.InputField)
+		if !ok {
+			a.logger.Err(typeAssertionErr)
+			showErrorModal(typeAssertionErr.Error())
+			return
+		}
+
+		pollingIntervalItem := editForm.GetFormItemByLabel(LABEL_POLLING_INTERVAL)
+		pollingIntervalInput, ok := pollingIntervalItem.(*tview.InputField)
+		if !ok {
+			a.logger.Err(typeAssertionErr)
+			showErrorModal(typeAssertionErr.Error())
+			return
+		}
+
+		maxWorkers, err := strconv.Atoi(maxWorkersInput.GetText())
+		if err != nil {
+			a.logger.Err(err)
+			showErrorModal("please input number to max workers field")
+			return
+		}
+
+		pollingInterval, err := strconv.Atoi(pollingIntervalInput.GetText())
+		if err != nil {
+			a.logger.Err(err)
+			showErrorModal("please input number to polling interval field")
+			return
+		}
+
+		if _, err := a.client.CreateQueue(queueName, uint(pollingInterval), uint(maxWorkers)); err != nil {
+			a.logger.Err(err)
+			showErrorModal(err.Error())
+			return
+		}
+
+		a.logger.Info().Fields(map[string]interface{}{
+			"queue_name":       queueName,
+			"max_workers":      maxWorkers,
+			"polling_interval": pollingInterval,
+		}).Msg("queue updated.")
+
+		if err := a.refreshQueueList(); err != nil {
+			a.logger.Err(err)
+		}
+
+		completeModal := tview.NewModal().
+			SetText(fmt.Sprintf("queue updated. queue_name: %s, max_workers: %d, polling_interval: %d", queueName, maxWorkers, pollingInterval)).
+			AddButtons([]string{"Close"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				clearPage()
+				a.pages.RemovePage(MODAL_PAGE)
+			})
+
+		a.pages.AddAndSwitchToPage(MODAL_PAGE, completeModal, true)
+	}).AddButton("Cancel", func() {
+		clearPage()
+	})
+
+	editForm.SetBorder(true).SetTitle(fmt.Sprintf("queue: %s edit form", queueName))
+
+	a.pages.AddAndSwitchToPage(EDIT_QUEUE_FORM_PAGE, editForm, true)
+}
+
 func (a *app) showQueueCreateForm() {
 	clearPage := func() {
 		a.pages.ShowPage(MAIN_PAGE)
@@ -302,7 +405,7 @@ func (a *app) showQueueCreateForm() {
 	form.
 		AddButton("Create", func() {
 			a.logger.Info().Msg("created")
-			typeAssertionErr := errors.New("type assertion failed. FormItem to InputField")
+			//typeAssertionErr := errors.New("type assertion failed. FormItem to InputField")
 
 			queueNameItem := form.GetFormItemByLabel(LABEL_QUEUE_NAME)
 			queueNameInput, ok := queueNameItem.(*tview.InputField)

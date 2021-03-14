@@ -29,6 +29,10 @@ func newQueueList(root *app) *QueueList {
 				queueName, _ := list.GetItemText(list.GetCurrentItem())
 				root.deleteQueue(queueName)
 				return nil
+			case 'e':
+				queueName, _ := list.GetItemText(list.GetCurrentItem())
+				root.showQueueEditForm(queueName)
+				return nil
 			default:
 				return event
 			}
